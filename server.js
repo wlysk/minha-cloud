@@ -1,0 +1,12 @@
+const express=require('express');
+const cors=require('cors');
+const {Pool}=require('pg');
+const app=express(); app.use(cors()); app.use(express.json());
+const pool=new Pool({connectionString:process.env.DATABASE_URL});
+app.get('/api/health',(req,res)=>res.json({ok:true,service:'Minha Cloud API'}));
+app.get('/api/plans',async(req,res)=>{try{const r=await pool.query('SELECT * FROM plans ORDER BY id');res.json(r.rows)}catch(e){res.status(500).json({error:e.message})}});
+app.get('/api/apps',async(req,res)=>{try{const r=await pool.query('SELECT * FROM applications ORDER BY id DESC');res.json(r.rows)}catch(e){res.status(500).json({error:e.message})}});
+app.post('/api/apps',async(req,res)=>{const {user_id,name,ram_mb=256,disk_mb=1024}=req.body;if(!user_id||!name)return res.status(400).json({error:'user_id e name são obrigatórios'});try{const r=await pool.query('INSERT INTO applications(user_id,name,ram_mb,disk_mb) VALUES($1,$2,$3,$4) RETURNING *',[user_id,name,ram_mb,disk_mb]);await pool.query('INSERT INTO application_logs(application_id,event,details) VALUES($1,$2,$3)',[r.rows[0].id,'created','Aplicação criada']);res.status(201).json(r.rows[0])}catch(e){res.status(500).json({error:e.message})}});
+app.patch('/api/apps/:id/status',async(req,res)=>{const {status}=req.body;if(!['running','stopped','restarting'].includes(status))return res.status(400).json({error:'status inválido'});try{const r=await pool.query('UPDATE applications SET status=$1 WHERE id=$2 RETURNING *',[status,req.params.id]);if(!r.rowCount)return res.status(404).json({error:'Aplicação não encontrada'});await pool.query('INSERT INTO application_logs(application_id,event) VALUES($1,$2)',[req.params.id,status]);res.json(r.rows[0])}catch(e){res.status(500).json({error:e.message})}});
+app.get('/api/apps/:id/logs',async(req,res)=>{const r=await pool.query('SELECT * FROM application_logs WHERE application_id=$1 ORDER BY id DESC LIMIT 100',[req.params.id]);res.json(r.rows)});
+app.listen(process.env.PORT||3000,()=>console.log('Minha Cloud API online'));
