@@ -1,0 +1,34 @@
+CREATE TABLE IF NOT EXISTS users (
+  id SERIAL PRIMARY KEY,
+  discord_id VARCHAR(32) UNIQUE NOT NULL,
+  username TEXT NOT NULL,
+  avatar TEXT,
+  plan_id INTEGER,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS plans (
+  id SERIAL PRIMARY KEY,
+  name TEXT UNIQUE NOT NULL,
+  ram_mb INTEGER NOT NULL DEFAULT 256,
+  disk_mb INTEGER NOT NULL DEFAULT 1024,
+  max_apps INTEGER NOT NULL DEFAULT 1
+);
+CREATE TABLE IF NOT EXISTS applications (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'stopped',
+  ram_mb INTEGER NOT NULL DEFAULT 256,
+  disk_mb INTEGER NOT NULL DEFAULT 1024,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS application_logs (
+  id BIGSERIAL PRIMARY KEY,
+  application_id INTEGER REFERENCES applications(id) ON DELETE CASCADE,
+  event TEXT NOT NULL,
+  details TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+INSERT INTO plans(name,ram_mb,disk_mb,max_apps)
+VALUES ('Free',256,1024,1),('Starter',512,3072,3),('Pro',1024,10240,8),('Premium',2048,20480,15)
+ON CONFLICT (name) DO NOTHING;
